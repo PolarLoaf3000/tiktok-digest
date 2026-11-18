@@ -1,0 +1,44 @@
+[project]
+name = "tiktok-digest"
+version = "0.1.0"
+description = "Cut a random vertical MP4 digest for TikTok."
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn>=0.32",
+    "ffmpeg-python>=0.2",
+    "python-multipart>=0.0.9",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3",
+    "pyright>=1.1.390",
+]
+
+[project.scripts]
+tiktok-digest = "app.main:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.pyright]
+pythonVersion = "3.12"
+typeCheckingMode = "strict"
+include = ["app", "tests"]
+venvPath = "."
+venv = ".venv"
+stubPath = "typings"
+# ffmpeg-python does not ship stubs. render.py narrows what it reads out of
+# the probe payload; the fluent graph itself stays untyped at the call site.
+reportMissingTypeStubs = "none"
+
+[project.urls]
+# No homepage. The script entry above is the server.
