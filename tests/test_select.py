@@ -88,6 +88,26 @@ def test_durations_must_be_positive() -> None:
         select_intervals(0.0, 5.0, 2)
 
 
+def test_absurd_durations_are_rejected() -> None:
+    # 1e307 and 1e308 are finite floats. Scaling either into frames overflows
+    # the float range; that used to raise OverflowError and surface as a 500.
+    for duration in (1e307, 1e308):
+        with pytest.raises(ClipError, match="too large"):
+            select_intervals(10.0, duration, 1)
+        with pytest.raises(ClipError, match="too large"):
+            select_intervals(duration, 5.0, 1)
+
+
+def test_ordinary_long_duration_still_selects() -> None:
+    # An hour is a duration a person can type. It must not take the overflow
+    # path that rejects 1e307.
+    intervals = select_intervals(4000.0, 3600.0, 4, rng=random.Random(2))
+    assert len(intervals) == 4
+    assert _total(intervals) == pytest.approx(3600.0, abs=1e-6)
+    _assert_inside(intervals, 4000.0)
+    _assert_no_overlap(intervals)
+
+
 def _total(intervals: list[tuple[float, float]]) -> float:
     return sum(end - start for start, end in intervals)
 

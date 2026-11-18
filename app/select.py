@@ -98,7 +98,14 @@ def _to_frames(seconds: float, label: str) -> int:
     # Half-up, with a tiny bias so a value that lands just under an integer
     # because of binary fractions (1.1 * 30 == 32.999999999) still rounds to
     # the frame the caller asked for.
-    return int(math.floor(seconds * OUTPUT_FPS + 0.5 + 1e-9))
+    # A duration around 1e307 is still a finite float, but scaling it into
+    # frames overflows to infinity. int() then raises OverflowError, and the
+    # request handler only turns ClipError into a client error — anything
+    # else becomes a 500. Reject the overflow as a duration we cannot cut.
+    scaled = seconds * OUTPUT_FPS + 0.5 + 1e-9
+    if not math.isfinite(scaled):
+        raise ClipError(f"{label} duration is too large to cut into frames.")
+    return int(math.floor(scaled))
 
 
 def _require_count(fragment_count: int) -> int:
