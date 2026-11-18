@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TikTok digest</title>
+  <style>
+    body {
+      margin: 0;
+      font: 16px/1.45 system-ui, sans-serif;
+      color: #1c1917;
+      background: #fafaf9;
+    }
+    main {
+      max-width: 24rem;
+      margin: 4rem auto;
+      padding: 0 1.25rem;
+    }
+    h1 {
+      margin: 0 0 1.25rem;
+      font-size: 1.25rem;
+      font-weight: 600;
+    }
+    form {
+      display: grid;
+      gap: 0.9rem;
+    }
+    label {
+      display: grid;
+      gap: 0.3rem;
+    }
+    input,
+    button {
+      font: inherit;
+    }
+    button {
+      justify-self: start;
+      padding: 0.4rem 0.85rem;
+    }
+    p {
+      margin: 0;
+      min-height: 1.45em;
+      color: #9f1239;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>TikTok digest</h1>
+    <form id="digest" action="/digest" method="post" enctype="multipart/form-data">
+      <label>
+        MP4
+        <input name="file" type="file" accept=".mp4,video/mp4" required>
+      </label>
+      <label>
+        Duration in seconds
+        <input name="duration" type="number" min="0" step="any" required>
+      </label>
+      <label>
+        Fragment count
+        <input name="fragments" type="number" min="1" step="1" required>
+      </label>
+      <button type="submit">Make digest</button>
+      <p id="error" role="alert"></p>
+    </form>
+  </main>
+  <script>
+    const form = document.querySelector("#digest");
+    const error = document.querySelector("#error");
+    const button = form.querySelector("button");
+    const idleLabel = button.textContent;
+
+    form.addEventListener("submit", (event) => {
+      // Stay on this document. A full navigation would replace the form
+      // with the JSON body on failure, and the download has no document
+      // in which to show that explanation.
+      event.preventDefault();
+      error.textContent = "";
+      button.disabled = true;
+      button.textContent = "Working…";
+
+      fetch(form.action, { method: "POST", body: new FormData(form) })
+        .then(async (response) => {
+          if (!response.ok) {
+            error.textContent = await explanation(response);
+            return;
+          }
+          await save(response);
+        })
+        .catch(() => {
+          error.textContent = "The request did not complete.";
+        })
+        .finally(() => {
+          button.disabled = false;
+          button.textContent = idleLabel;
+        });
+    });
+
+    async function explanation(response) {
+      // `detail` is the sentence the API already chose. textContent, because
+      // that sentence can quote a filename or an ffmpeg line and must not
+      // be parsed as markup.
+      let body;
+      try {
+        body = await response.json();
+      } catch {
+        return "The cut could not be made.";
+      }
+      const detail = body && body.detail;
+      if (typeof detail === "string" && detail.trim()) {
+        return detail;
+      }
+      if (Array.isArray(detail)) {
+        const lines = [];
+        for (const item of detail) {
+          if (item && typeof item.msg === "string" && item.msg.trim()) {
+            lines.push(item.msg);
+          }
+        }
+        if (lines.length) {
+          return lines.join(" ");
+        }
+      }
+      return "The cut could not be made.";
+    }
+
+    async function save(response) {
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename(response);
+      document.body.append(link);
+      link.click();
+      link.remove();
+      // The click only starts the download. Revoking in this turn can
+      // drop the blob before the browser has opened it.
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    function filename(response) {
+      const header = response.headers.get("Content-Disposition") || "";
+      const quoted = /filename="([^"]*)"/.exec(header);
+      if (quoted && quoted[1]) {
+        return quoted[1];
+      }
+      return "digest.mp4";
+    }
+  </script>
+</body>
+</html>

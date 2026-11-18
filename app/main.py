@@ -3,7 +3,7 @@
 The handler writes the upload to a path, then calls probe, select, and
 render. It does not choose timestamps or build a filter graph. ClipError
 becomes a client error and no MP4 is returned: a failed request must not
-look like a shorter digest.
+look like a shorter digest. GET / only serves the form that calls this route.
 """
 
 from __future__ import annotations
@@ -14,13 +14,28 @@ from typing import Annotated
 
 import uvicorn
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
-from fastapi.responses import Response
+from fastapi.responses import FileResponse, Response
 
 from app.errors import ClipError
 from app.render import probe_duration, render_digest
 from app.select import select_intervals
 
 app = FastAPI(title="TikTok digest")
+
+# Next to this module, which is where setuptools places package data.
+# The form has to be found after install, not only from a checkout cwd.
+_PAGE = Path(__file__).with_name("page.html")
+
+
+@app.get("/", include_in_schema=False)
+def page() -> FileResponse:
+    """Serve the one form that posts to ``/digest``.
+
+    The form is not an API operation, so it stays out of the schema. The
+    cut still happens only in ``digest``; this handler does not encode.
+    """
+
+    return FileResponse(_PAGE, media_type="text/html; charset=utf-8")
 
 
 @app.post("/digest")

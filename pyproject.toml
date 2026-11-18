@@ -26,6 +26,11 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools.packages.find]
 include = ["app*"]
 
+[tool.setuptools.package-data]
+# The form is not a Python module. Without this, a wheel install serves
+# a missing file and the only client of /digest disappears.
+app = ["page.html"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
